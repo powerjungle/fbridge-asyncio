@@ -86,7 +86,6 @@ async def listen_api(session, fbchat_client):
                         find_img_url = re.search(r"http.+\.(" + imgt + ')', got_text)
                     except TypeError:
                         logging.info("TypeError")
-                        pass
                     else:
                         if find_img_url:
                             found_img_url = find_img_url.group(0)
@@ -97,12 +96,6 @@ async def listen_api(session, fbchat_client):
 
                     if found_img_type == "webp":
                         found_img_type = "png"
-
-                # logging.info(f"found img: {found_img_url}")
-                # logging.info(f"found img type: {found_img_type}")
-                # logging.info(got_username)
-                # logging.info(got_text)
-                # logging.info(got_gateway)
 
                 if got_gateway:
                     fb_thread = reverse_threads[got_gateway]
@@ -122,6 +115,25 @@ async def listen_api(session, fbchat_client):
                             await thread.send_files(files)  # Alternative to .send_text
                         except fbchat.ExternalError as e:
                             logging.error(e)
+
+                    if len(got_text.splitlines()) > 1 and got_text.startswith('>'):
+                        split_lines = got_text.splitlines()
+                        got_text = ''
+                        count = 0
+                        for line in split_lines:
+                            if not line.startswith('>'):
+                                break
+                            count += 1
+
+                        try:
+                            split_lines[count] = '\n' + split_lines[count]
+                        except IndexError:
+                            pass
+
+                        for line in split_lines:
+                            got_text += '\n' + line
+                    elif got_text.startswith('>'):
+                        got_text = '\n' + got_text
 
                     logging.info(f"From api sending message: username: {got_username} | text: {got_text}")
 
@@ -313,9 +325,6 @@ async def main():
 
         client.sequence_id_callback = listener.set_sequence_id
         await client.fetch_threads(limit=1).__anext__()
-
-        # api_task = asyncio.create_task(listen_api(session, client))
-        # await api_task
 
         await listen_api(session, client)
     else:
