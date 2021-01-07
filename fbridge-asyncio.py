@@ -111,8 +111,9 @@ async def listen_api(session, fbchat_client):
 
                         try:
                             files = await fbchat_client.upload(
-                                [("image_name.png", image_data, "image/" + found_img_type)])
-                            await thread.send_files(files)  # Alternative to .send_text
+                                [("image_name.png", image_data, "image/" + found_img_type)]
+                            )
+                            await thread.send_text(text=f"{got_username}", files=files)
                         except fbchat.ExternalError as e:
                             logging.error(e)
 
@@ -144,56 +145,27 @@ async def listen_api(session, fbchat_client):
     logging.error(f"out of client.stream")
 
 
-async def get_attachments(attachments, send_text):
-    proper_elements = dict()
-    count = 0
-    got_attachments = []
-
+async def get_attachments(attachments, send_text, client):
+    url = ''
     if isinstance(attachments[0], fbchat.ShareAttachment) or \
             isinstance(attachments[0], fbchat.VideoAttachment) or \
             isinstance(attachments[0], fbchat.AudioAttachment):  # TODO: Finish me
-        ''' you need to find a way to exctract the original img url from
-        the attachment and the video, from the video attachment
-        
-        orig_img_url = attachments[0].image.original_image_url
+        return send_text  # you need to find a way to extract the attachments
 
-        if send_text is not None:
-            send_text = f"{orig_img_url} {send_text}"
-        else:
-            send_text = f"{orig_img_url}"
-        
-        '''
+    if isinstance(attachments[0], fbchat.ImageAttachment):
+        url = await client.fetch_image_url(attachments[0].id)
 
-        return send_text
-
-    for img_pr in attachments[0].previews:
-        got_attachments.append(img_pr.url)
-        if img_pr.width is not None:
-            proper_elements[count] = img_pr.width * img_pr.height
-        count += 1
-
-    # print(proper_elements)
-
-    if len(proper_elements) > 1:
-        proper_elements = sorted(proper_elements, key=proper_elements.get)
-
-    # print(proper_elements)
-
-    last_element = 0
-    for x in proper_elements:
-        last_element = x
-
-    # print(last_element)
+    logging.info(f"got url: {url}")
 
     if send_text is not None:
-        send_text = f"{got_attachments[last_element]} {send_text}"
+        send_text = f"{url} {send_text}"
     else:
-        send_text = f"{got_attachments[last_element]}"
+        send_text = f"{url}"
 
     return send_text
 
 
-async def listen_fb(listener, session):
+async def listen_fb(listener, session, client):
     async for event in listener.listen():
         if isinstance(event, fbchat.MessageEvent) or isinstance(event, fbchat.MessageReplyEvent):
             run_rest = True
@@ -207,11 +179,6 @@ async def listen_fb(listener, session):
                 else:
                     if regex:
                         run_rest = False
-
-                # This is temporary until a solution that allows the bot to post images without echo is found.
-                if event.message.text is None:
-                    logging.info("Ignoring attachments from bot acc in fb to prevent echo.")
-                    run_rest = False
 
             if run_rest is True:
                 logging.info(f"From fb event: {event}")
@@ -233,7 +200,7 @@ async def listen_fb(listener, session):
                 send_text = event.message.text
 
                 if event.message.attachments:
-                    send_text = await get_attachments(event.message.attachments, send_text)
+                    send_text = await get_attachments(event.message.attachments, send_text, client)
 
                 if isinstance(event, fbchat.MessageEvent):
                     logging.info(
@@ -260,7 +227,7 @@ async def listen_fb(listener, session):
                             event_msg = f"replied to {author_nick}: " + event_msg
 
                     if event.replied_to.attachments:
-                        event_msg = await get_attachments(event.replied_to.attachments, event_msg)
+                        event_msg = await get_attachments(event.replied_to.attachments, event_msg, client)
 
                     format_only_reply_msg = ''
                     if reply.text is not None:
@@ -321,7 +288,7 @@ async def main():
         client = fbchat.Client(session=session)
         listener = fbchat.Listener(session=session, chat_on=True, foreground=False)
 
-        asyncio.create_task(listen_fb(listener, session))
+        asyncio.create_task(listen_fb(listener, session, client))
 
         client.sequence_id_callback = listener.set_sequence_id
         await client.fetch_threads(limit=1).__anext__()
