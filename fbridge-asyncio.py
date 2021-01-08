@@ -49,13 +49,13 @@ def save_cookies(filename, cookies):
         json.dump(cookies, f)
 
 
-async def load_session(cookies):
+async def load_session(cookies, cookie_domain):
     if not cookies:
         return
 
     try:
         # Set the domain to the one you took the cookie data from
-        return await fbchat.Session.from_cookies(cookies, domain="facebook.com")
+        return await fbchat.Session.from_cookies(cookies, domain=cookie_domain)
     except fbchat.FacebookError as e:
         logging.info(e)
         return  # Failed loading from cookies
@@ -264,6 +264,8 @@ async def main():
     stream_api_url = parsed_toml["stream_api_url"]
     message_api_url = parsed_toml["message_api_url"]
 
+    cookie_domain = parsed_toml["cookie_domain"]
+
     th = parsed_toml["threads"]
     us = parsed_toml["users"]
 
@@ -277,7 +279,7 @@ async def main():
     remote_nick_format = parsed_toml["RemoteNickFormat"]
 
     cookies = load_cookies("session.json")
-    session = await load_session(cookies)
+    session = await load_session(cookies, cookie_domain)
     if not session:
         logging.error("Session could not be loaded, login instead!")
         session = await fbchat.Session.login(getpass.getuser(), getpass.getpass())
