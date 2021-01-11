@@ -4,6 +4,9 @@ This repo is a fork of [fbridge](https://github.com/VictorNine/fbridge).
 
 If you're having problems with matterbridge not detecting messages, try restarting both it and the fbridge script.
 
+If you login to your facebook account from a browser, after you do, it's a good idea to restart both matterbridge and
+fbridge-asyncio since facebook might disconnect you.
+
 Example service file for fbridge that restarts every hour:
 ```
 [Unit]
@@ -85,6 +88,50 @@ To install the required modules, run in the directory that `requirements.txt` is
 
 If just `python` doesn't work, try running `python3`, the same goes for `pip` and `pip3`.
 
-If you don't wish to add bloat to your setup, install `pipenv` and checkout the [pipenv docs](https://pypi.org/project/pipenv/).
+If you don't wish to add bloat to your setup, checkout the
+[venv docs](https://docs.python.org/3/library/venv.html).
 
-Read around in the repo for [fbchat-asyncio](https://github.com/tulir/fbchat-asyncio) to get familiar with it, otherwise you'll have a hard time logging in. This is the module that's used for communicating with the Facebook chat.
+Read around in the repo for [fbchat-asyncio](https://github.com/tulir/fbchat-asyncio) to get familiar with it, otherwise
+you'll have a hard time logging in. This is the module that's used for communicating with the Facebook chat.
+
+## Handle duplicate usernames
+
+If in other services (example: discord) there is a way to set any username, someone can impersonate another
+user by accident or not. That's why if you're bridging small groups and using other bots it's a good idea to handle
+the duplicates with a "tengo" script in matterbridge. Some services like mumble (registration) and irc (nickserv) have
+mechanisms to reserve usernames, but if it's not configured you can still use the script.
+
+You can create a file called "userids.tengo" in the directory where your matterbridge config is with the following code:
+
+```tengo
+userids := {"123456789123456789": "some_username",
+            "otheruser@some-hostanme.new": "otheruser"}
+
+for key, res in userids {
+	if key == msgUserID {
+		result=res
+		break
+	} else {
+		/*
+		Ignoring the facebook bridge, set "fb" to your bridge name.
+		This is done for fbridge-asyncio since it already uses the user id.
+		*/
+		if bridge != "fb" && protocol != "api" {
+			result=nick + " | not static"
+		} else {
+			result=nick
+		}
+	}
+}
+```
+
+Then add this to your matterbridge config file:
+
+```
+[tengo]
+RemoteNickFormat="userids.tengo"
+```
+
+If you're running matterbridge as a service, set the full path for "userids.tengo" in the config.
+
+and replace all `{NICK}` with `{TENGO}`.
