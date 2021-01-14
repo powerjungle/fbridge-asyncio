@@ -4,8 +4,8 @@ This repo is a fork of [fbridge](https://github.com/VictorNine/fbridge).
 
 If you're having problems with matterbridge not detecting messages, try restarting both it and the fbridge script.
 
-If you login to your facebook account from a browser, after you do, it's a good idea to restart both matterbridge and
-fbridge-asyncio since facebook might disconnect you.
+If you log in to your facebook account from a browser, after you do, it's a good idea to restart both matterbridge and
+fbridge-asyncio, since facebook might disconnect you.
 
 Example service file for fbridge that restarts every hour:
 ```
@@ -18,12 +18,12 @@ WorkingDirectory=/home/pi/fbridge-asyncio
 ExecStart=/usr/bin/python3 /home/pi/fbridge-asyncio/fbridge-asyncio.py
 User=pi
 Restart=always
-RuntimeMaxSec=3600
+RuntimeMaxSec=86400
 
 [Install]
 WantedBy=multi-user.target
 ```
-Change `RuntimeMaxSec` to something else if you don't want it to restart so fast.
+Change `RuntimeMaxSec` to something else if you want it to restart with a different period.
 
 Example service file for matterbridge:
 ```
@@ -39,6 +39,9 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 ```
+
+It's recommended to use these service files, since the script will be more reliable if it restarts automatically and
+if it doesn't restart independently of matterbridge.
 
 Example config for fbridge:
 ```toml

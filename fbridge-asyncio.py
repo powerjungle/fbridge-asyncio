@@ -24,6 +24,9 @@ remote_nick_format = ""
 stream_api_url = ''
 message_api_url = ''
 
+api_client = httpx.AsyncClient()
+fb_listener_global = None
+
 
 # Send message to matterbridge
 async def send_msg_to_api(gateway, text, username=''):
@@ -40,7 +43,7 @@ def load_cookies(filename):
         with open(filename) as f:
             return json.load(f)
     except FileNotFoundError as e:
-        logging.info(e)
+        logging.error(e)
         return  # No cookies yet
 
 
@@ -54,94 +57,105 @@ async def load_session(cookies, cookie_domain):
         return
 
     try:
-        # Set the domain to the one you took the cookie data from
         return await fbchat.Session.from_cookies(cookies, domain=cookie_domain)
     except fbchat.FacebookError as e:
-        logging.info(e)
+        logging.error(e)
         return  # Failed loading from cookies
 
 
 async def listen_api(session, fbchat_client):
-    client = httpx.AsyncClient()
     timeout = httpx.Timeout(10.0, read=None)
-    async with client.stream(method="GET", url=stream_api_url, timeout=timeout) as r:
+    async with api_client.stream(method="GET", url=stream_api_url, timeout=timeout) as r:
         logging.info(f"response: {r}")
-        async for msg in r.aiter_lines():
-            resp_json = json.loads(msg)
-            logging.info(resp_json)
-            if resp_json:
-                logging.info(f"From api received json: {resp_json}")
+        try:
+            async for msg in r.aiter_lines():
+                resp_json = json.loads(msg)
+                logging.info(resp_json)
+                if resp_json:
+                    logging.info(f"From api received json: {resp_json}")
 
-                got_gateway = resp_json.get("gateway")
-                got_text = resp_json.get("text")
-                got_username = resp_json.get("username")
+                    got_gateway = resp_json.get("gateway")
+                    got_text = resp_json.get("text")
+                    got_username = resp_json.get("username")
 
-                found_img_url = None
-                found_img_type = None
+                    found_img_url = None
+                    found_img_type = None
 
-                img_types = ["jpg", "png", "jpeg", "gif", "webp"]
+                    img_types = ["jpg", "png", "jpeg", "gif", "webp"]
 
-                for imgt in img_types:
-                    try:
-                        find_img_url = re.search(r"http.+\.(" + imgt + ')', got_text)
-                    except TypeError:
-                        logging.info("TypeError")
-                    else:
-                        if find_img_url:
-                            found_img_url = find_img_url.group(0)
-                            found_img_type = find_img_url.group(1)
+                    for imgt in img_types:
+                        try:
+                            find_img_url = re.search(r"http.+\.(" + imgt + ')', got_text)
+                        except TypeError:
+                            logging.info("TypeError")
+                        else:
+                            if find_img_url:
+                                found_img_url = find_img_url.group(0)
+                                found_img_type = find_img_url.group(1)
 
-                    if found_img_type == "jpg":
-                        found_img_type = "jpeg"
+                        if found_img_type == "jpg":
+                            found_img_type = "jpeg"
 
-                    if found_img_type == "webp":
-                        found_img_type = "png"
+                        if found_img_type == "webp":
+                            found_img_type = "png"
 
-                if got_gateway:
-                    fb_thread = reverse_threads[got_gateway]
+                    if got_gateway:
+                        fb_thread = reverse_threads[got_gateway]
 
-                    if fb_thread in users:
-                        thread = fbchat.User(session=session, id=fb_thread)
-                    else:
-                        thread = fbchat.Group(session=session, id=fb_thread)
+                        if fb_thread in users:
+                            thread = fbchat.User(session=session, id=fb_thread)
+                        else:
+                            thread = fbchat.Group(session=session, id=fb_thread)
 
-                    if found_img_url is not None:
-                        async with ClientSession() as sess, sess.get(found_img_url) as resp:
-                            image_data = await resp.read()
+                        if found_img_url is not None:
+                            async with ClientSession() as sess, sess.get(found_img_url) as resp:
+                                image_data = await resp.read()
+
+                            try:
+                                files = await fbchat_client.upload(
+                                    [("image_name.png", image_data, "image/" + found_img_type)]
+                                )
+                                try:
+                                    await thread.send_text(text=f"{got_username}", files=files)
+                                except fbchat.FacebookError as e:
+                                    logging.error(e)
+
+                            except fbchat.ExternalError as e:
+                                logging.error(e)
+
+                        if len(got_text.splitlines()) > 1 and got_text.startswith('>'):
+                            split_lines = got_text.splitlines()
+                            got_text = ''
+                            count = 0
+                            for line in split_lines:
+                                if not line.startswith('>'):
+                                    break
+                                count += 1
+
+                            try:
+                                split_lines[count] = '\n' + split_lines[count]
+                            except IndexError:
+                                pass
+
+                            for line in split_lines:
+                                got_text += '\n' + line
+                        elif got_text.startswith('>'):
+                            got_text = '\n' + got_text
+
+                        logging.info(f"From api sending message: username: {got_username} | text: {got_text}")
 
                         try:
-                            files = await fbchat_client.upload(
-                                [("image_name.png", image_data, "image/" + found_img_type)]
-                            )
-                            await thread.send_text(text=f"{got_username}", files=files)
-                        except fbchat.ExternalError as e:
+                            await thread.send_text(f"{got_username}{got_text}")
+                        except fbchat.FacebookError as e:
                             logging.error(e)
 
-                    if len(got_text.splitlines()) > 1 and got_text.startswith('>'):
-                        split_lines = got_text.splitlines()
-                        got_text = ''
-                        count = 0
-                        for line in split_lines:
-                            if not line.startswith('>'):
-                                break
-                            count += 1
-
-                        try:
-                            split_lines[count] = '\n' + split_lines[count]
-                        except IndexError:
-                            pass
-
-                        for line in split_lines:
-                            got_text += '\n' + line
-                    elif got_text.startswith('>'):
-                        got_text = '\n' + got_text
-
-                    logging.info(f"From api sending message: username: {got_username} | text: {got_text}")
-
-                    await thread.send_text(f"{got_username}{got_text}")
-
-                    logging.info(f"Sent message: username: {got_username} | text: {got_text}")
-        logging.warning("listen_api: out of loop")
+                        logging.info(f"Sent message: username: {got_username} | text: {got_text}")
+        except httpx.RemoteProtocolError as e:
+            logging.error(e)
+            try:
+                fb_listener_global.disconnect()
+            except fbchat.FacebookError as e:
+                logging.error(e)
     logging.error(f"out of client.stream")
 
 
@@ -165,81 +179,85 @@ async def get_attachments(attachments, send_text, client):
     return send_text
 
 
-async def listen_fb(listener, session, client):
-    async for event in listener.listen():
-        if isinstance(event, fbchat.MessageEvent) or isinstance(event, fbchat.MessageReplyEvent):
-            run_rest = True
-            # Don't echo back messages to api that are received from the api
-            if event.author.id == session.user.id:
-                try:
-                    # Find the configured pattern to ignore
-                    regex = re.search(r'' + remote_nick_format, event.message.text)
-                except TypeError:
-                    pass  # Just go on error, so that the script doesn't stop
-                else:
-                    if regex:
-                        run_rest = False
+async def listen_fb(fb_listener, session, client):
+    try:
+        async for event in fb_listener.listen():
+            if isinstance(event, fbchat.MessageEvent) or isinstance(event, fbchat.MessageReplyEvent):
+                run_rest = True
+                # Don't echo back messages to api that are received from the api
+                if event.author.id == session.user.id:
+                    try:
+                        # Find the configured pattern to ignore
+                        regex = re.search(r'' + remote_nick_format, event.message.text)
+                    except TypeError:
+                        pass  # Just go on error, so that the script doesn't stop
+                    else:
+                        if regex:
+                            run_rest = False
 
-            if run_rest is True:
-                logging.info(f"From fb event: {event}")
-                logging.info(
-                    f"From fb received: "
-                    f"message: {event.message.text} | "
-                    f"from user: {event.author.id} | "
-                    f"in thread: {event.thread.id}")
-
-                gateway = ""
-                username = ""
-
-                if event.thread.id in threads:
-                    gateway = threads[event.thread.id]
-
-                if event.author.id in users:
-                    username = users[event.author.id]
-
-                send_text = event.message.text
-
-                if event.message.attachments:
-                    send_text = await get_attachments(event.message.attachments, send_text, client)
-
-                if isinstance(event, fbchat.MessageEvent):
+                if run_rest is True:
+                    logging.info(f"From fb event: {event}")
                     logging.info(
-                        f"From fb sending to api: "
-                        f"username: {username} | "
-                        f"gateway: {gateway} | "
-                        f"message: {event.message.text}")
-                    await send_msg_to_api(gateway, send_text, username)
-                    logging.info(f"Sent message to api: event.message.text: {event.message.text}")
-                elif isinstance(event, fbchat.MessageReplyEvent):
-                    reply = event.replied_to
-                    logging.info(
-                        f"From fb sending to api (reply): "
-                        f"username: {username} | "
-                        f"gateway: {gateway} | "
+                        f"From fb received: "
                         f"message: {event.message.text} | "
-                        f"reply author: {reply.author}")
-                    event_msg = send_text
-                    if reply.author != '':
-                        author_nick = users.get(reply.author)
-                        if author_nick == username:
-                            event_msg = "replied to self: " + event_msg
-                        else:
-                            event_msg = f"replied to {author_nick}: " + event_msg
+                        f"from user: {event.author.id} | "
+                        f"in thread: {event.thread.id}")
 
-                    if event.replied_to.attachments:
-                        event_msg = await get_attachments(event.replied_to.attachments, event_msg, client)
+                    gateway = ""
+                    username = ""
 
-                    format_only_reply_msg = ''
-                    if reply.text is not None:
-                        for line in reply.text.splitlines(keepends=True):
-                            format_only_reply_msg += "> " + line
+                    if event.thread.id in threads:
+                        gateway = threads[event.thread.id]
 
-                    format_whole_reply_msg = \
-                        f"\n{format_only_reply_msg}\n" \
-                        f"{event_msg}"
-                    await send_msg_to_api(gateway, format_whole_reply_msg, username)
-                    logging.info(f"Sent message to api: event_msg: {event_msg}")
-    logging.warning("listen_fb: out of loop")
+                    if event.author.id in users:
+                        username = users[event.author.id]
+
+                    send_text = event.message.text
+
+                    if event.message.attachments:
+                        send_text = await get_attachments(event.message.attachments, send_text, client)
+
+                    if isinstance(event, fbchat.MessageEvent):
+                        logging.info(
+                            f"From fb sending to api: "
+                            f"username: {username} | "
+                            f"gateway: {gateway} | "
+                            f"message: {event.message.text}")
+                        await send_msg_to_api(gateway, send_text, username)
+                        logging.info(f"Sent message to api: event.message.text: {event.message.text}")
+                    elif isinstance(event, fbchat.MessageReplyEvent):
+                        reply = event.replied_to
+                        logging.info(
+                            f"From fb sending to api (reply): "
+                            f"username: {username} | "
+                            f"gateway: {gateway} | "
+                            f"message: {event.message.text} | "
+                            f"reply author: {reply.author}")
+                        event_msg = send_text
+                        if reply.author != '':
+                            author_nick = users.get(reply.author)
+                            if author_nick == username:
+                                event_msg = "replied to self: " + event_msg
+                            else:
+                                event_msg = f"replied to {author_nick}: " + event_msg
+
+                        if event.replied_to.attachments:
+                            event_msg = await get_attachments(event.replied_to.attachments, event_msg, client)
+
+                        format_only_reply_msg = ''
+                        if reply.text is not None:
+                            for line in reply.text.splitlines(keepends=True):
+                                format_only_reply_msg += "> " + line
+
+                        format_whole_reply_msg = \
+                            f"\n{format_only_reply_msg}\n" \
+                            f"{event_msg}"
+                        await send_msg_to_api(gateway, format_whole_reply_msg, username)
+                        logging.info(f"Sent message to api: event_msg: {event_msg}")
+    except fbchat.FacebookError as e:
+        logging.error(e)
+        await api_client.aclose()
+        return
 
 
 async def main():
@@ -256,7 +274,7 @@ async def main():
     global message_api_url
 
     if not os.path.exists("fbridge-config.toml"):
-        logging.info("Config file fbridge-config.toml doesn't exist")
+        logging.error("Config file fbridge-config.toml doesn't exist")
         return
 
     parsed_toml = toml.load("fbridge-config.toml")
@@ -288,14 +306,18 @@ async def main():
 
     if session:
         client = fbchat.Client(session=session)
-        listener = fbchat.Listener(session=session, chat_on=True, foreground=False)
+        global fb_listener_global
+        fb_listener_global = fbchat.Listener(session=session, chat_on=True, foreground=False)
+        fb_listener = fb_listener_global
 
-        asyncio.create_task(listen_fb(listener, session, client))
+        listen_fb_task = asyncio.create_task(listen_fb(fb_listener, session, client))
 
-        client.sequence_id_callback = listener.set_sequence_id
+        client.sequence_id_callback = fb_listener.set_sequence_id
         await client.fetch_threads(limit=1).__anext__()
 
         await listen_api(session, client)
+
+        await listen_fb_task
     else:
         logging.error("No session was loaded, you either need the cookies or a proper login.")
 
