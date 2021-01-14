@@ -27,6 +27,8 @@ message_api_url = ''
 api_client = httpx.AsyncClient()
 fb_listener_global = None
 
+run_infinite_timer = True
+timeout_listen = 3600
 
 # Send message to matterbridge
 async def send_msg_to_api(gateway, text, username=''):
@@ -65,6 +67,7 @@ async def load_session(cookies, cookie_domain):
 
 async def listen_api(session, fbchat_client):
     timeout = httpx.Timeout(10.0, read=None)
+    logging.info("Starting api_client stream")
     async with api_client.stream(method="GET", url=stream_api_url, timeout=timeout) as r:
         logging.info(f"response: {r}")
         try:
@@ -152,11 +155,17 @@ async def listen_api(session, fbchat_client):
                         logging.info(f"Sent message: username: {got_username} | text: {got_text}")
         except httpx.RemoteProtocolError as e:
             logging.error(e)
-            try:
-                fb_listener_global.disconnect()
-            except fbchat.FacebookError as e:
-                logging.error(e)
-    logging.error(f"out of client.stream")
+
+    logging.error(f"out of api_client stream")
+    try:
+        fb_listener_global.disconnect()
+    except fbchat.FacebookError as e:
+        logging.error(e)
+    global run_infinite_timer
+    run_infinite_timer = False
+    global timeout_listen
+    timeout_listen = 1
+    logging.info("Stopping infinite timer loop.")
 
 
 async def get_attachments(attachments, send_text, client):
@@ -263,7 +272,6 @@ async def listen_fb(fb_listener, session, client):
 
 
 async def timeout_listen_fb():
-    timeout_listen = 3600
     logging.info(f"Fb listener timeout restarted: {timeout_listen} sec")
     await asyncio.sleep(timeout_listen)
     try:
@@ -331,7 +339,7 @@ async def main():
 
         asyncio.create_task(listen_api(session, client))
 
-        while True:
+        while run_infinite_timer is True:
             asyncio.create_task(timeout_listen_fb())
             await listen_fb_task
             listen_fb_task = asyncio.create_task(listen_fb(fb_listener, session, client))
