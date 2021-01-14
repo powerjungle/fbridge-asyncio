@@ -18,12 +18,10 @@ WorkingDirectory=/home/pi/fbridge-asyncio
 ExecStart=/usr/bin/python3 /home/pi/fbridge-asyncio/fbridge-asyncio.py
 User=pi
 Restart=always
-RuntimeMaxSec=86400
 
 [Install]
 WantedBy=multi-user.target
 ```
-Change `RuntimeMaxSec` to something else if you want it to restart with a different period.
 
 Example service file for matterbridge:
 ```
@@ -40,8 +38,8 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-It's recommended to use these service files, since the script will be more reliable if it restarts automatically and
-if it doesn't restart independently of matterbridge.
+It's recommended to use these service files, since the script will be more reliable if it doesn't restart independently
+of matterbridge.
 
 Example config for fbridge:
 ```toml

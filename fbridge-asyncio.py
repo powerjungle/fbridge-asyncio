@@ -180,6 +180,7 @@ async def get_attachments(attachments, send_text, client):
 
 
 async def listen_fb(fb_listener, session, client):
+    logging.info("Listening for fb events")
     try:
         async for event in fb_listener.listen():
             if isinstance(event, fbchat.MessageEvent) or isinstance(event, fbchat.MessageReplyEvent):
@@ -254,10 +255,23 @@ async def listen_fb(fb_listener, session, client):
                             f"{event_msg}"
                         await send_msg_to_api(gateway, format_whole_reply_msg, username)
                         logging.info(f"Sent message to api: event_msg: {event_msg}")
+        logging.warning("Out of fb listener loop.")
     except fbchat.FacebookError as e:
         logging.error(e)
         await api_client.aclose()
         return
+
+
+async def timeout_listen_fb():
+    timeout_listen = 3600
+    logging.info(f"Fb listener timeout restarted: {timeout_listen} sec")
+    await asyncio.sleep(timeout_listen)
+    try:
+        fb_listener_global.disconnect()
+    except fbchat.FacebookError as e:
+        logging.error(e)
+        exit()
+    logging.info("Executed listener disconnect")
 
 
 async def main():
@@ -315,9 +329,13 @@ async def main():
         client.sequence_id_callback = fb_listener.set_sequence_id
         await client.fetch_threads(limit=1).__anext__()
 
-        await listen_api(session, client)
+        asyncio.create_task(listen_api(session, client))
 
-        await listen_fb_task
+        while True:
+            asyncio.create_task(timeout_listen_fb())
+            await listen_fb_task
+            listen_fb_task = asyncio.create_task(listen_fb(fb_listener, session, client))
+
     else:
         logging.error("No session was loaded, you either need the cookies or a proper login.")
 
