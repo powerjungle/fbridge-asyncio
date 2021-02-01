@@ -8,6 +8,7 @@ import toml
 import logging
 import httpx
 import re
+import base64
 from aiohttp import ClientSession
 
 if os.name == "nt":
@@ -65,6 +66,35 @@ async def load_session(cookies, cookie_domain):
         return  # Failed loading from cookies
 
 
+async def find_img_type(search_text, search_link=True, url_protocol="http"):
+    img_types = ["jpg", "png", "jpeg", "gif", "webp"]
+
+    found_img_type = None
+    found_img_url = None
+
+    for imgt in img_types:
+        try:
+            if search_link is True:
+                find_img_url = re.search(url_protocol + r".+\.(" + imgt + ")", search_text)
+            else:
+                find_img_url = re.search(r".+\.(" + imgt + ')$', search_text)
+        except TypeError:
+            logging.info("TypeError")
+            return None
+        else:
+            if find_img_url:
+                found_img_url = find_img_url.group(0)
+                found_img_type = find_img_url.group(1)
+
+        if found_img_type == "jpg":
+            found_img_type = "jpeg"
+
+        if found_img_type == "webp":
+            found_img_type = "png"
+
+    return found_img_type, found_img_url
+
+
 async def listen_api(session, fbchat_client):
     timeout = httpx.Timeout(10.0, read=None)
     logging.info("Starting api_client stream")
@@ -73,34 +103,27 @@ async def listen_api(session, fbchat_client):
         try:
             async for msg in r.aiter_lines():
                 resp_json = json.loads(msg)
-                logging.info(resp_json)
-                if resp_json:
-                    logging.info(f"From api received json: {resp_json}")
 
+                if resp_json:
                     got_gateway = resp_json.get("gateway")
                     got_text = resp_json.get("text")
                     got_username = resp_json.get("username")
 
-                    found_img_url = None
-                    found_img_type = None
+                    search_link = True
 
-                    img_types = ["jpg", "png", "jpeg", "gif", "webp"]
+                    try:
+                        filedata = resp_json["Extra"]["file"][0]["Data"]
+                    except (KeyError, TypeError):
+                        logging.info(f"From api received json: {resp_json}")
+                    else:
+                        search_link = False
+                        filedata = base64.standard_b64decode(filedata)
+                        got_text = resp_json["Extra"]["file"][0]["Name"]
 
-                    for imgt in img_types:
-                        try:
-                            find_img_url = re.search(r"http.+\.(" + imgt + ')', got_text)
-                        except TypeError:
-                            logging.info("TypeError")
-                        else:
-                            if find_img_url:
-                                found_img_url = find_img_url.group(0)
-                                found_img_type = find_img_url.group(1)
+                    img_type_result, filename = await find_img_type(search_text=got_text, search_link=search_link)
 
-                        if found_img_type == "jpg":
-                            found_img_type = "jpeg"
-
-                        if found_img_type == "webp":
-                            found_img_type = "png"
+                    if filename == got_text and search_link is False:
+                        got_text = f"sent {img_type_result} file"
 
                     if got_gateway:
                         fb_thread = reverse_threads[got_gateway]
@@ -110,13 +133,16 @@ async def listen_api(session, fbchat_client):
                         else:
                             thread = fbchat.Group(session=session, id=fb_thread)
 
-                        if found_img_url is not None:
-                            async with ClientSession() as sess, sess.get(found_img_url) as resp:
-                                image_data = await resp.read()
+                        if img_type_result is not None:
+                            if search_link is True:
+                                async with ClientSession() as sess, sess.get(filename) as resp:
+                                    image_data = await resp.read()
+                            else:
+                                image_data = filedata
 
                             try:
                                 files = await fbchat_client.upload(
-                                    [("image_name.png", image_data, "image/" + found_img_type)]
+                                    [(filename, image_data, "image/" + img_type_result)]
                                 )
                                 try:
                                     await thread.send_text(text=f"{got_username}", files=files)
