@@ -66,33 +66,38 @@ async def load_session(cookies, cookie_domain):
         return  # Failed loading from cookies
 
 
-async def find_img_type(search_text, search_link=True, url_protocol="http"):
-    img_types = ["jpg", "png", "jpeg", "gif", "webp"]
+async def find_file_type(search_text, search_link=True, url_protocol="http"):
+    types = {"image": ["jpg", "png", "jpeg", "gif", "webp"], "video": ["webm"]}
 
-    found_img_type = None
-    found_img_url = None
+    found_type = None
+    found_url = None
+    found_cat = None
 
-    for imgt in img_types:
-        try:
-            if search_link is True:
-                find_img_url = re.search(url_protocol + r".+\.(" + imgt + ")", search_text)
+    for tp in types:
+        for find_tp in types[tp]:
+            try:
+                if search_link is True:
+                    find_img_url = re.search(url_protocol + r".+\.(" + find_tp + ")", search_text)
+                else:
+                    find_img_url = re.search(r".+\.(" + find_tp + ')$', search_text)
+            except TypeError:
+                logging.info("TypeError")
+                return None
             else:
-                find_img_url = re.search(r".+\.(" + imgt + ')$', search_text)
-        except TypeError:
-            logging.info("TypeError")
-            return None
-        else:
-            if find_img_url:
-                found_img_url = find_img_url.group(0)
-                found_img_type = find_img_url.group(1)
+                if find_img_url:
+                    found_url = find_img_url.group(0)
+                    found_type = find_img_url.group(1)
+                    found_cat = tp
 
-        if found_img_type == "jpg":
-            found_img_type = "jpeg"
+            if found_type == "jpg":
+                found_type = "jpeg"
 
-        if found_img_type == "webp":
-            found_img_type = "png"
+            if found_type == "webp":
+                found_type = "png"
 
-    return found_img_type, found_img_url
+            break
+
+    return found_type, found_url, found_cat
 
 
 async def listen_api(session, fbchat_client):
@@ -120,7 +125,7 @@ async def listen_api(session, fbchat_client):
                         filedata = base64.standard_b64decode(filedata)
                         got_text = resp_json["Extra"]["file"][0]["Name"]
 
-                    img_type_result, filename = await find_img_type(search_text=got_text, search_link=search_link)
+                    img_type_result, filename, cat = await find_file_type(search_text=got_text, search_link=search_link)
 
                     if filename == got_text and search_link is False:
                         got_text = f"sent {img_type_result} file"
@@ -142,7 +147,7 @@ async def listen_api(session, fbchat_client):
 
                             try:
                                 files = await fbchat_client.upload(
-                                    [(filename, image_data, "image/" + img_type_result)]
+                                    [(filename, image_data, cat + "/" + img_type_result)]
                                 )
                                 try:
                                     await thread.send_text(text=f"{got_username}", files=files)
