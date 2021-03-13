@@ -31,6 +31,7 @@ fb_listener_global = None
 run_infinite_timer = True
 timeout_listen = 3600
 
+
 # Send message to matterbridge
 async def send_msg_to_api(gateway, text, username=''):
     if text is not None:

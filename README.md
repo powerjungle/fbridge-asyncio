@@ -7,7 +7,7 @@ If you're having problems with matterbridge not detecting messages, try restarti
 If you log in to your facebook account from a browser, after you do, it's a good idea to restart both matterbridge and
 fbridge-asyncio, since facebook might disconnect you.
 
-Example service file for fbridge that restarts every hour:
+Example service file for fbridge (for a Raspberry Pi):
 ```
 [Unit]
 Description=fbridge-asyncio
@@ -23,7 +23,7 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-Example service file for matterbridge:
+Example service file for matterbridge (for a Raspberry Pi):
 ```
 [Unit]
 Description=matterbridge
@@ -45,13 +45,14 @@ Example config for fbridge:
 ```toml
 # You have to set a RemoteNickFormat in "matterbridge.toml", otherwise the bot won't work properly.
 # This is used so that messages written in the api, don't echo back.
-# Also this approach allows you to write through the user which is the bot in fb.
+# Also this approach allows you to write through the user which is the bot in Facebook.
 # It has to be the same format you set in "matterbridge.toml" for the api.
 # This has to be a regular expression, if you don't know how, just use the default here, but you have to
 # set the RemoteNickFormat for the bridges you'll be receiveing from into the api in matterbridge.toml
 # as "[{PROTOCOL}] <{NICK}>"
 RemoteNickFormat = '''\[(\w+)\]\s<.+>'''
 
+# These links are hosted by the matterbridge api after configuring it.
 stream_api_url = "http://localhost:4242/api/stream"
 message_api_url = "http://localhost:4242/api/message"
 
@@ -88,6 +89,8 @@ To install the required modules, run in the directory that `requirements.txt` is
 `python -m pip install -r requirements.txt`
 
 If just `python` doesn't work, try running `python3`, the same goes for `pip` and `pip3`.
+
+This will install modules globally.
 
 If you don't wish to add bloat to your setup, checkout the
 [venv docs](https://docs.python.org/3/library/venv.html).
