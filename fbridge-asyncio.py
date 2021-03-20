@@ -89,14 +89,14 @@ async def find_file_type(search_text, search_link=True, url_protocol="http"):
                     found_url = find_img_url.group(0)
                     found_type = find_img_url.group(1)
                     found_cat = tp
+                    logging.info(f"found_url: {found_url} ; found_type: {found_type} ; found_cat: {found_cat}")
+                    break
 
-            if found_type == "jpg":
-                found_type = "jpeg"
+    if found_type == "jpg":
+        found_type = "jpeg"
 
-            if found_type == "webp":
-                found_type = "png"
-
-            break
+    if found_type == "webp":
+        found_type = "png"
 
     return found_type, found_url, found_cat
 
