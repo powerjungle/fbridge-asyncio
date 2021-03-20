@@ -81,9 +81,9 @@ async def find_file_type(search_text, search_link=True, url_protocol="http"):
                     find_img_url = re.search(url_protocol + r".+\.(" + find_tp + ")", search_text)
                 else:
                     find_img_url = re.search(r".+\.(" + find_tp + ')$', search_text)
-            except TypeError:
-                logging.info("TypeError")
-                return None
+            except TypeError as e:
+                logging.info(f"searching for file returned: {e}")
+                break
             else:
                 if find_img_url:
                     found_url = find_img_url.group(0)
