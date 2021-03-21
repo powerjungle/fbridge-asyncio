@@ -10,6 +10,7 @@ import httpx
 import re
 import base64
 from aiohttp import ClientSession
+import secrets
 
 if os.name == "nt":
     asyncio.DefaultEventLoopPolicy = asyncio.WindowsSelectorEventLoopPolicy
@@ -210,7 +211,7 @@ async def get_attachments(attachments, send_text, client):
     if isinstance(attachments[0], fbchat.ImageAttachment):
         url = await client.fetch_image_url(attachments[0].id)
 
-    logging.info(f"got url: {url}")
+    logging.info(f"Got URL: {url}")
 
     if send_text is not None:
         send_text = f"{url} {send_text}"
@@ -268,7 +269,10 @@ async def listen_fb(fb_listener, session, client):
                         await send_msg_to_api(gateway, send_text, username)
                         logging.info(f"Sent message to api: event.message.text: {event.message.text}")
                     elif isinstance(event, fbchat.MessageReplyEvent):
+                        random_token = secrets.token_hex(nbytes=2)
+
                         reply = event.replied_to
+
                         logging.info(
                             f"From fb sending to api (reply): "
                             f"username: {username} | "
@@ -276,24 +280,30 @@ async def listen_fb(fb_listener, session, client):
                             f"message: {event.message.text} | "
                             f"reply author: {reply.author}")
                         event_msg = send_text
+
+                        author_nick = None
                         if reply.author != '':
                             author_nick = users.get(reply.author)
-                            if author_nick == username:
-                                event_msg = "replied to self: " + event_msg
-                            else:
-                                event_msg = f"replied to {author_nick}: " + event_msg
+
+                        format_event_msg = ''
+                        for line in event_msg.splitlines(keepends=True):
+                            format_event_msg += f"({random_token}) {line}"
+
+                        event_msg = f"[Reply]: \n" + format_event_msg
 
                         if event.replied_to.attachments:
                             event_msg = await get_attachments(event.replied_to.attachments, event_msg, client)
+                            event_msg += f"\n({random_token}) [Attachment from]: {author_nick}"
 
                         format_only_reply_msg = ''
                         if reply.text is not None:
+                            format_only_reply_msg += f"[Quote from]: {author_nick}:\n"
                             for line in reply.text.splitlines(keepends=True):
-                                format_only_reply_msg += "> " + line
+                                format_only_reply_msg += f"({random_token}) {line}"
 
                         format_whole_reply_msg = \
-                            f"\n{format_only_reply_msg}\n" \
-                            f"{event_msg}"
+                            f"({random_token}) {format_only_reply_msg}\n" \
+                            f"({random_token}) {event_msg}"
                         await send_msg_to_api(gateway, format_whole_reply_msg, username)
                         logging.info(f"Sent message to api: event_msg: {event_msg}")
         logging.warning("Out of fb listener loop.")
