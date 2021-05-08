@@ -1,3 +1,6 @@
 .idea/
 fbridge-config.toml
 session.json
+session.toml
+fbridge-config.toml.gpg
+session.json.gpg

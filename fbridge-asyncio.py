@@ -343,6 +343,9 @@ async def main():
 
     parsed_toml = toml.load("fbridge-config.toml")
 
+    if parsed_toml["path"]:
+        parsed_toml = toml.load(parsed_toml["path"])
+
     stream_api_url = parsed_toml["stream_api_url"]
     message_api_url = parsed_toml["message_api_url"]
 
@@ -360,7 +363,15 @@ async def main():
 
     remote_nick_format = parsed_toml["RemoteNickFormat"]
 
-    cookies = load_cookies("session.json")
+    session_toml = "session.toml"
+
+    if os.path.exists(session_toml):
+        parsed_cookie_toml = toml.load(session_toml)
+        got_session_path = parsed_cookie_toml["path"]
+        cookies = load_cookies(got_session_path)
+    else:
+        cookies = load_cookies("session.json")
+
     session = await load_session(cookies, cookie_domain)
     if not session:
         logging.error("Session could not be loaded, login instead!")
