@@ -343,7 +343,7 @@ async def main():
 
     parsed_toml = toml.load("fbridge-config.toml")
 
-    if parsed_toml["path"]:
+    if parsed_toml.get("path"):
         parsed_toml = toml.load(parsed_toml["path"])
 
     stream_api_url = parsed_toml["stream_api_url"]
