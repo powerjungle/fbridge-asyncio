@@ -5,13 +5,19 @@ import logging
 
 async def get_attachments(attachments, send_text, client):
     url = ''
-    if isinstance(attachments[0], ShareAttachment) or \
-            isinstance(attachments[0], VideoAttachment) or \
-            isinstance(attachments[0], AudioAttachment):  # TODO: Finish me
-        return send_text  # you need to find a way to extract the attachments
+    if isinstance(attachments[0], ShareAttachment):  # TODO: Finish me
+        return send_text
 
     if isinstance(attachments[0], ImageAttachment):
         url = await client.fetch_image_url(attachments[0].id)
+    elif isinstance(attachments[0], AudioAttachment):
+        url = attachments[0].url
+    elif isinstance(attachments[0], VideoAttachment):
+        # TODO: Needs to get the actual video, not the preview, but it's something for now
+        url = attachments[0].preview_url
+        if send_text is None:
+            send_text = ''
+        send_text = "(Warning: Video URL is a preview) " + send_text
 
     logging.info(f"Got URL: {url}")
 
