@@ -5,8 +5,8 @@ import logging
 
 async def get_attachments(attachments, send_text, client):
     url = ''
-    if isinstance(attachments[0], ShareAttachment):  # TODO: Finish me
-        return send_text
+
+    preview_message = "(Warning: Video URL is a preview)"
 
     if isinstance(attachments[0], ImageAttachment):
         url = await client.fetch_image_url(attachments[0].id)
@@ -17,7 +17,16 @@ async def get_attachments(attachments, send_text, client):
         url = attachments[0].preview_url
         if send_text is None:
             send_text = ''
-        send_text = "(Warning: Video URL is a preview) " + send_text
+        send_text = f"{preview_message} {send_text}"
+    elif isinstance(attachments[0], ShareAttachment):
+        url = attachments[0].url
+        if hasattr(attachments[0], "attachments"):
+            if isinstance(attachments[0].attachments[0], VideoAttachment):
+                # TODO: Needs to get the actual video, not the preview, but it's something for now
+                url = attachments[0].attachments[0].preview_url
+                if send_text is None:
+                    send_text = ''
+                send_text = f"{preview_message} {send_text}"
 
     logging.info(f"Got URL: {url}")
 
