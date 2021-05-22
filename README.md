@@ -9,6 +9,7 @@ Example service file for fbridge:
 ```
 [Unit]
 Description=fbridge-asyncio
+Requires=matterbridge.service
 After=matterbridge.service
 
 [Service]
