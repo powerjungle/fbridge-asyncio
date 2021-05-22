@@ -8,7 +8,7 @@ import toml
 import asyncio
 
 from fbridge_listen import listen_fb, listen_api, loop_listeners
-
+from needed_values import NeededVars
 
 if not path.exists("fbridge-config.toml"):
     logging.error("Config file fbridge-config.toml doesn't exist")
@@ -17,11 +17,17 @@ if not path.exists("fbridge-config.toml"):
 if name == "nt":
     asyncio.DefaultEventLoopPolicy = asyncio.WindowsSelectorEventLoopPolicy
 
-threads = dict()
-users = dict()
-
-# Reverse lookup
-reverse_threads = dict()
+parsed_toml = toml.load("fbridge-config.toml")
+if parsed_toml.get("path"):
+    parsed_toml = toml.load(parsed_toml["path"])
+message_api_url = parsed_toml["message_api_url"]
+cookie_domain_global = parsed_toml["cookie_domain"]
+th = parsed_toml["threads"]
+us = parsed_toml["users"]
+stream_api_url = parsed_toml["stream_api_url"]
+timeout_listen = parsed_toml["timeout_listen"]
+NeededVars.stream_api_url = stream_api_url
+NeededVars.timeout_listen = timeout_listen
 
 
 def load_cookies(filename):
@@ -34,21 +40,12 @@ def load_cookies(filename):
         return  # No cookies yet
 
 
-parsed_toml = toml.load("fbridge-config.toml")
-if parsed_toml.get("path"):
-    parsed_toml = toml.load(parsed_toml["path"])
-stream_api_url = parsed_toml["stream_api_url"]
-message_api_url = parsed_toml["message_api_url"]
-cookie_domain_global = parsed_toml["cookie_domain"]
-th = parsed_toml["threads"]
-us = parsed_toml["users"]
-
 for key, value in th.items():
-    threads[key] = value["gateway"]
+    NeededVars.threads[key] = value["gateway"]
 for key, value in us.items():
-    users[key] = value["username"]
+    NeededVars.users[key] = value["username"]
 
-reverse_threads = {v: k for k, v in threads.items()}
+NeededVars.reverse_threads = {v: k for k, v in NeededVars.threads.items()}
 
 remote_nick_format = parsed_toml["RemoteNickFormat"]
 
@@ -81,7 +78,7 @@ async def main():
     logging.basicConfig(level=logging.INFO)  # You cen set the level to DEBUG for more info
     logging.info("Logging started")
     session_global = await load_session(cookies_global, cookie_domain_global)
-    fb_listener_global = Listener(session=session_global, chat_on=True, foreground=False)
+    NeededVars.fb_listener_global = Listener(session=session_global, chat_on=True, foreground=False)
     if not session_global:
         logging.error("Session could not be loaded, login instead!")
         session_global = await Session.login(getuser(), getpass())
@@ -89,16 +86,12 @@ async def main():
         register(lambda: save_cookies("session.json", session_global.get_cookies()))
     if session_global:
         client = Client(session=session_global)
-
-        listen_fb_task = asyncio.create_task(listen_fb(fb_listener_global, client,
-                                                       remote_nick_format, threads, users,
+        listen_fb_task = asyncio.create_task(listen_fb(client, remote_nick_format,
                                                        message_api_url, session_global))
-        client.sequence_id_callback = fb_listener_global.set_sequence_id
+        client.sequence_id_callback = NeededVars.fb_listener_global.set_sequence_id
         await client.fetch_threads(limit=1).__anext__()
-        asyncio.create_task(listen_api(session_global, client, stream_api_url,
-                                       reverse_threads, users, fb_listener_global))
-        await loop_listeners(listen_fb_task, fb_listener_global, client,
-                             remote_nick_format, threads, users, message_api_url, session_global)
+        await loop_listeners(listen_fb_task, client,
+                             remote_nick_format, message_api_url, session_global)
     else:
         logging.error("No session was loaded, you either need the cookies or a proper login.")
 

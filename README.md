@@ -53,6 +53,9 @@ message_api_url = "http://localhost:4242/api/message"
 # The domain from which you got the cookie.
 cookie_domain = "messenger.com"
 
+# How fast to restart the script in case facebook randomly stops sending.
+timeout_listen = 3600
+
 # This section is used so that the script knows which thread to relay to which gateway in matterbridge.
 [threads]
     [threads.1567891234567891] # Here you put the thread id you got from the url in messenger.com
