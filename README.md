@@ -13,7 +13,7 @@ After=matterbridge.service
 
 [Service]
 WorkingDirectory=/home/user/fbridge-asyncio
-ExecStart=/usr/bin/python3 /home/user/fbridge-asyncio/fbridge-asyncio.py
+ExecStart=/usr/bin/python3 /home/user/fbridge-asyncio/fbridge_asyncio.py
 Restart=always
 
 [Install]
