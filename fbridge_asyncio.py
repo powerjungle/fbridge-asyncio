@@ -7,7 +7,7 @@ import logging
 import toml
 import asyncio
 
-from fbridge_listen import listen_fb, listen_api, loop_listeners
+from fbridge_listen import listen_fb, loop_listeners
 from needed_values import NeededVars
 
 if not path.exists("fbridge-config.toml"):
@@ -28,6 +28,8 @@ stream_api_url = parsed_toml["stream_api_url"]
 timeout_listen = parsed_toml["timeout_listen"]
 NeededVars.stream_api_url = stream_api_url
 NeededVars.timeout_listen = timeout_listen
+
+logging.basicConfig(level=logging.INFO)
 
 
 def load_cookies(filename):
@@ -75,7 +77,6 @@ def save_cookies(filename, cookies):
 
 
 async def main():
-    logging.basicConfig(level=logging.INFO)  # You cen set the level to DEBUG for more info
     logging.info("Logging started")
     session_global = await load_session(cookies_global, cookie_domain_global)
     NeededVars.fb_listener_global = Listener(session=session_global, chat_on=True, foreground=False)

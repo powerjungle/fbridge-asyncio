@@ -34,7 +34,6 @@ async def disconnect_fb():
 
 async def setup_api():
     global api_client
-    logging.info(f"api_client: {api_client}")
     api_client = AsyncClient()
     timeout = Timeout(10.0, read=None)
     return timeout
@@ -51,7 +50,7 @@ async def listen_api(session, fbchat_client):
         async with api_client.stream(method="GET", url=NeededVars.stream_api_url, timeout=timeout) as r:
             logging.info(f"API: {r}")
             async for msg in r.aiter_lines():
-                logging.info(msg)
+                logging.info(f"API Message: {msg}")
                 resp_json = loads(msg)
                 got_gateway = resp_json.get("gateway")
                 if bool(got_gateway) is True:
