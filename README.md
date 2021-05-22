@@ -2,44 +2,38 @@
 
 This repo is a fork of [fbridge](https://github.com/VictorNine/fbridge).
 
-If you're having problems with matterbridge not detecting messages, try restarting both it and the fbridge script.
-
-If you log in to your facebook account from a browser, after you do, it's a good idea to restart both matterbridge and
+If you log in to your facebook account from a browser, after you do, it's a good idea to restart
 fbridge-asyncio, since facebook might disconnect you.
 
-Example service file for fbridge (for a Raspberry Pi):
+Example service file for fbridge:
 ```
 [Unit]
 Description=fbridge-asyncio
-Requires=matterbridge.service
+After=matterbridge.service
 
 [Service]
-WorkingDirectory=/home/pi/fbridge-asyncio
-ExecStart=/usr/bin/python3 /home/pi/fbridge-asyncio/fbridge-asyncio.py
-User=pi
+WorkingDirectory=/home/user/fbridge-asyncio
+ExecStart=/usr/bin/python3 /home/user/fbridge-asyncio/fbridge-asyncio.py
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Example service file for matterbridge (for a Raspberry Pi):
+Example service file for matterbridge:
 ```
 [Unit]
 Description=matterbridge
-Requires=fbridge-asyncio.service
 
 [Service]
-ExecStart=/home/pi/matterbridge/matterbridge-1.20.0-linux-armv6 -conf /home/pi/matterbridge/matterbridge.toml
-User=pi
+ExecStart=/home/user/matterbridge/matterbridge-1.20.0-linux-armv6 -conf /home/user/matterbridge/matterbridge.toml
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-It's recommended to use these service files, since the script will be more reliable if it doesn't restart independently
-of matterbridge.
+Warning if `User=` is not specified, these services will run everything as root, which you might not want.
 
 Example config for fbridge:
 ```toml
