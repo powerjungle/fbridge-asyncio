@@ -162,7 +162,6 @@ async def listen_fb(client, remote_nick_format, message_api_url, session):
         logging.warning("Out of Facebook listener loop.")
     except FacebookError as e:
         logging.error(f"Facebook Exception: {e}")
-        await stop_infinite_timer()
     await disconnect_fb()
 
 
@@ -173,4 +172,3 @@ async def loop_listeners(listen_fb_task, client, remote_nick_format, message_api
         await listen_fb_task
         listen_fb_task = create_task(listen_fb(client,
                                                remote_nick_format, message_api_url, session))
-    await disconnect_fb()
