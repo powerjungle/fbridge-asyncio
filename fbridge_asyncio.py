@@ -6,8 +6,9 @@ from json import load, dump
 import logging
 import toml
 import asyncio
+from signal import SIGINT
 
-from fbridge_listen import listen_fb, loop_listeners
+from fbridge_listen import listen_fb, loop_listeners, handle_interrupt
 from needed_values import NeededVars
 
 if not path.exists("fbridge-config.toml"):
@@ -86,6 +87,8 @@ async def main():
         # Save session cookies to file when the program exits
         register(lambda: save_cookies("session.json", session_global.get_cookies()))
     if session_global:
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(SIGINT, lambda: asyncio.ensure_future(handle_interrupt()))
         client = Client(session=session_global)
         listen_fb_task = asyncio.create_task(listen_fb(client, remote_nick_format,
                                                        message_api_url, session_global))

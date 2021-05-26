@@ -39,6 +39,24 @@ async def setup_api():
     return timeout
 
 
+async def out_of_api():
+    logging.warning(f"out of api_client stream")
+    await api_client.aclose()
+    await disconnect_fb()
+
+
+async def set_timeout(value):
+    global timed_out
+    if run_infinite_timer is True:
+        timed_out = value
+
+
+async def handle_interrupt():
+    await stop_infinite_timer()
+    await set_timeout(False)
+    await out_of_api()
+
+
 async def listen_api(session, fbchat_client):
     global run_infinite_timer
     if run_infinite_timer is False:
@@ -89,20 +107,7 @@ async def listen_api(session, fbchat_client):
                     logging.info(f"Sent message: username: {got_username} | text: {got_text}")
     except (RemoteProtocolError, ConnectError) as e:
         logging.error(f"API Exception: {e}")
-        await stop_infinite_timer()
-    await out_of_api()
-
-
-async def out_of_api():
-    logging.warning(f"out of api_client stream")
-    await api_client.aclose()
-    await disconnect_fb()
-
-
-async def set_timeout(value):
-    global timed_out
-    if run_infinite_timer is True:
-        timed_out = value
+        await handle_interrupt()
 
 
 async def timeout_listen_fb():
@@ -163,7 +168,7 @@ async def listen_fb(client, remote_nick_format, message_api_url, session):
     except FacebookError as e:
         logging.error(f"Facebook Exception: {e}")
         await set_timeout(False)
-    await disconnect_fb()
+        await disconnect_fb()
 
 
 async def loop_listeners(listen_fb_task, client, remote_nick_format, message_api_url, session):
