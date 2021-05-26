@@ -15,6 +15,7 @@ After=matterbridge.service
 [Service]
 WorkingDirectory=/home/user/fbridge-asyncio
 ExecStart=/usr/bin/python3 /home/user/fbridge-asyncio/fbridge_asyncio.py
+KillSignal=SIGINT
 Restart=always
 
 [Install]

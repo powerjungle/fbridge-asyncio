@@ -10,22 +10,14 @@ from fbridge_check import find_file_type, check_if_same_authors, check_event_mat
 from fbridge_handle_extra import format_text_quote, handle_reply
 from needed_values import NeededVars
 
-api_client = AsyncClient()
-
-run_infinite_timer = True
-timeout_listen = 3600
-timed_out = False
-
 
 async def stop_infinite_timer():
-    global run_infinite_timer
-    global timed_out
-    if timed_out is False:
-        run_infinite_timer = False
+    if NeededVars.timed_out is False:
+        NeededVars.run_infinite_timer = False
         NeededVars.timeout_listen = 0
         logging.warning("Stopping infinite timer loop.")
     else:
-        timed_out = False
+        NeededVars.timed_out = False
 
 
 async def disconnect_fb():
@@ -33,22 +25,20 @@ async def disconnect_fb():
 
 
 async def setup_api():
-    global api_client
-    api_client = AsyncClient()
+    NeededVars.api_client = AsyncClient()
     timeout = Timeout(10.0, read=None)
     return timeout
 
 
 async def out_of_api():
     logging.warning(f"out of api_client stream")
-    await api_client.aclose()
+    await NeededVars.api_client.aclose()
     await disconnect_fb()
 
 
 async def set_timeout(value):
-    global timed_out
-    if run_infinite_timer is True:
-        timed_out = value
+    if NeededVars.run_infinite_timer is True:
+        NeededVars.timed_out = value
 
 
 async def handle_interrupt():
@@ -58,14 +48,13 @@ async def handle_interrupt():
 
 
 async def listen_api(session, fbchat_client):
-    global run_infinite_timer
-    if run_infinite_timer is False:
+    if NeededVars.run_infinite_timer is False:
         return
     timeout = await setup_api()
     logging.info("Starting api_client stream")
     logging.info(f"Using API URL: {NeededVars.stream_api_url}")
     try:
-        async with api_client.stream(method="GET", url=NeededVars.stream_api_url, timeout=timeout) as r:
+        async with NeededVars.api_client.stream(method="GET", url=NeededVars.stream_api_url, timeout=timeout) as r:
             logging.info(f"API: {r}")
             async for msg in r.aiter_lines():
                 logging.info(f"API Message: {msg}")
@@ -112,7 +101,6 @@ async def listen_api(session, fbchat_client):
 
 async def timeout_listen_fb():
     logging.info(f"Facebook listener timeout restarted: {NeededVars.timeout_listen} sec")
-    global timed_out
     await set_timeout(False)
     await sleep(NeededVars.timeout_listen)
     await set_timeout(True)
@@ -121,8 +109,7 @@ async def timeout_listen_fb():
 
 
 async def listen_fb(client, remote_nick_format, message_api_url, session):
-    global run_infinite_timer
-    if run_infinite_timer is False:
+    if NeededVars.run_infinite_timer is False:
         return
     logging.info("Listening for Facebook events")
     try:
@@ -173,8 +160,8 @@ async def listen_fb(client, remote_nick_format, message_api_url, session):
 
 async def loop_listeners(listen_fb_task, client, remote_nick_format, message_api_url, session):
     create_task(listen_api(session, client))
-    while run_infinite_timer is True:
-        if timed_out is True:
+    while NeededVars.run_infinite_timer is True:
+        if NeededVars.timed_out is True:
             create_task(timeout_listen_fb())
         await listen_fb_task
         listen_fb_task = create_task(listen_fb(client,

@@ -5,3 +5,6 @@ class NeededVars:
     reverse_threads = dict()  # Reverse lookup
     fb_listener_global = None
     timeout_listen = 0
+    api_client = None
+    run_infinite_timer = True
+    timed_out = False
