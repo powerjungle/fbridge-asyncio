@@ -42,8 +42,8 @@ async def set_timeout(value):
 
 
 async def handle_interrupt():
-    await stop_infinite_timer()
     await set_timeout(False)
+    await stop_infinite_timer()
     await out_of_api()
 
 
