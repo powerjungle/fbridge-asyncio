@@ -160,6 +160,7 @@ async def listen_fb(client, remote_nick_format, message_api_url, session):
 
 async def loop_listeners(listen_fb_task, client, remote_nick_format, message_api_url, session):
     create_task(listen_api(session, client))
+    create_task(timeout_listen_fb())
     while NeededVars.run_infinite_timer is True:
         if NeededVars.timed_out is True:
             create_task(timeout_listen_fb())

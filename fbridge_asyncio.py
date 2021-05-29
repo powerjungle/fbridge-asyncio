@@ -87,7 +87,6 @@ async def main():
         # Save session cookies to file when the program exits
         register(lambda: save_cookies("session.json", session_global.get_cookies()))
     if session_global:
-        NeededVars.timeout_listen = 3600
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(SIGINT, lambda: asyncio.ensure_future(handle_interrupt()))
         client = Client(session=session_global)
