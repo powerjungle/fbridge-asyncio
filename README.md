@@ -49,8 +49,15 @@ Example config for fbridge:
 RemoteNickFormat = '''\[(\w+)\]\s<.+>'''
 
 # These links are hosted by the matterbridge api after configuring it.
-stream_api_url = "http://localhost:4242/api/stream"
-message_api_url = "http://localhost:4242/api/message"
+stream_api_url = "http://localhost:4242/api/stream" # Stream messages from api
+message_api_url = "http://localhost:4242/api/message" # Send message to api
+messages_api_url = "http://localhost:4242/api/messages" # Receive messages from api
+
+# With stream matterbridge doesn't seem to repond after the fbridge-asyncio script is restarted, but
+# uses normal streaming, the messages mode is a hack sorta, which avoids this problem.
+# Maybe I'm stupid, but idk, this is what I came up with. If you want to restart the script,
+# without needing to restart matterbridge, use the messages mode.
+listen_api_mode = "messages" # or "stream"
 
 # The domain from which you got the cookie.
 cookie_domain = "messenger.com"

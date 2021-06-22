@@ -3,6 +3,7 @@ from httpx import AsyncClient
 from json import dumps
 from fbchat import FacebookError, ExternalError
 import logging
+from needed_values import NeededVars
 
 
 async def send_text(text, thread, files=None):
@@ -31,9 +32,10 @@ async def send_file(text, thread, fbchat_client, filedata, cat,
 
 
 # Send message to matterbridge
-async def send_msg_to_api(gateway, text, message_api_url, username=''):
+async def send_msg_to_api(gateway, text, username=''):
     if text is not None:
         headers = {'content-type': 'application/json'}
         payload = {"text": text, "username": username, "gateway": gateway}
+        logging.info(f"API payload: {payload}")
         async with AsyncClient() as client:
-            await client.post(message_api_url, data=dumps(payload), headers=headers)
+            await client.post(NeededVars.message_api_url, data=dumps(payload), headers=headers)

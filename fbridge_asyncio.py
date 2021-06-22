@@ -21,14 +21,14 @@ if name == "nt":
 parsed_toml = toml.load("fbridge-config.toml")
 if parsed_toml.get("path"):
     parsed_toml = toml.load(parsed_toml["path"])
-message_api_url = parsed_toml["message_api_url"]
 cookie_domain_global = parsed_toml["cookie_domain"]
 th = parsed_toml["threads"]
 us = parsed_toml["users"]
-stream_api_url = parsed_toml["stream_api_url"]
-timeout_listen = parsed_toml["timeout_listen"]
-NeededVars.stream_api_url = stream_api_url
-NeededVars.timeout_listen = timeout_listen
+NeededVars.messages_api_url = parsed_toml["messages_api_url"]
+NeededVars.message_api_url = parsed_toml["message_api_url"]
+NeededVars.stream_api_url = parsed_toml["stream_api_url"]
+NeededVars.timeout_listen = parsed_toml["timeout_listen"]
+NeededVars.listen_api_mode = parsed_toml["listen_api_mode"]
 
 logging.basicConfig(level=logging.INFO)
 
@@ -90,12 +90,11 @@ async def main():
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(SIGINT, lambda: asyncio.ensure_future(handle_interrupt()))
         client = Client(session=session_global)
-        listen_fb_task = asyncio.create_task(listen_fb(client, remote_nick_format,
-                                                       message_api_url, session_global))
+        listen_fb_task = asyncio.create_task(listen_fb(client, remote_nick_format, session_global))
         client.sequence_id_callback = NeededVars.fb_listener_global.set_sequence_id
         await client.fetch_threads(limit=1).__anext__()
         await loop_listeners(listen_fb_task, client,
-                             remote_nick_format, message_api_url, session_global)
+                             remote_nick_format, session_global)
     else:
         logging.error("No session was loaded, you either need the cookies or a proper login.")
 
