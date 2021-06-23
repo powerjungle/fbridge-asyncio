@@ -123,7 +123,6 @@ async def listen_api_messages(session, fbchat_client):
             r = await NeededVars.api_client.get(url=NeededVars.messages_api_url, timeout=timeout)
             resp_json = r.json()
             if len(resp_json) != 0:
-                logging.info(f"API: {r}")
                 await handle_got_message(resp_json[0], session, fbchat_client)
             else:
                 await sleep(0.2)
@@ -142,9 +141,7 @@ async def listen_websocket_messages(session, fbchat_client):
         websocket = await websockets.connect(NeededVars.websocket_api_url)
         while NeededVars.run_infinite_timer is True:
             r = await websocket.recv()
-            logging.info(f"r: {r}")
             if len(r) != 0:
-                logging.info(f"API: {r}")
                 await handle_got_message(r, session, fbchat_client)
     except (RemoteProtocolError, ConnectError) as e:
         logging.error(f"API Exception: {e}")
