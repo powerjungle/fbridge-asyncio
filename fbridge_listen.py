@@ -134,7 +134,7 @@ async def listen_api_messages(session, fbchat_client):
 async def listen_websocket_messages(session, fbchat_client):
     if NeededVars.run_infinite_timer is False:
         return
-    logging.info("Starting api_client stream (using messages mode)")
+    logging.info("Starting api_client stream (using websocket mode)")
     logging.info(f"Using API URL for receiving: {NeededVars.websocket_api_url}")
     logging.info(f"Using API URL for sending: {NeededVars.message_api_url}")
     try:
