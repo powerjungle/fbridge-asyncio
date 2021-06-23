@@ -122,7 +122,7 @@ async def listen_api_messages(session, fbchat_client):
                 logging.info(f"API: {r}")
                 await handle_got_message(resp_json[0], session, fbchat_client)
             else:
-                await sleep(1)
+                await sleep(0.2)
     except (RemoteProtocolError, ConnectError) as e:
         logging.error(f"API Exception: {e}")
         await handle_interrupt()
