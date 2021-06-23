@@ -27,8 +27,10 @@ us = parsed_toml["users"]
 NeededVars.messages_api_url = parsed_toml["messages_api_url"]
 NeededVars.message_api_url = parsed_toml["message_api_url"]
 NeededVars.stream_api_url = parsed_toml["stream_api_url"]
+NeededVars.websocket_api_url = parsed_toml["websocket_api_url"]
 NeededVars.timeout_listen = parsed_toml["timeout_listen"]
 NeededVars.listen_api_mode = parsed_toml["listen_api_mode"]
+
 
 logging.basicConfig(level=logging.INFO)
 

@@ -4,6 +4,7 @@ class NeededVars:
     stream_api_url = None
     messages_api_url = None
     message_api_url = None
+    websocket_api_url = None
     reverse_threads = dict()  # Reverse lookup
     fb_listener_global = None
     timeout_listen = 0

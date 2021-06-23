@@ -9,6 +9,7 @@ from fbridge_send import send_file, send_text, send_msg_to_api
 from fbridge_check import find_file_type, check_if_same_authors, check_event_match
 from fbridge_handle_extra import format_text_quote, handle_reply
 from needed_values import NeededVars
+import websockets
 
 
 async def stop_infinite_timer():
@@ -44,7 +45,10 @@ async def set_timeout(value):
 async def handle_interrupt():
     await set_timeout(False)
     await stop_infinite_timer()
-    await out_of_api()
+    if NeededVars.listen_api_mode != "websocket":
+        await out_of_api()
+    else:
+        await disconnect_fb()
 
 
 async def handle_got_message(msg, session, fbchat_client):
@@ -128,6 +132,25 @@ async def listen_api_messages(session, fbchat_client):
         await handle_interrupt()
 
 
+async def listen_websocket_messages(session, fbchat_client):
+    if NeededVars.run_infinite_timer is False:
+        return
+    logging.info("Starting api_client stream (using messages mode)")
+    logging.info(f"Using API URL for receiving: {NeededVars.websocket_api_url}")
+    logging.info(f"Using API URL for sending: {NeededVars.message_api_url}")
+    try:
+        websocket = await websockets.connect(NeededVars.websocket_api_url)
+        while NeededVars.run_infinite_timer is True:
+            r = await websocket.recv()
+            logging.info(f"r: {r}")
+            if len(r) != 0:
+                logging.info(f"API: {r}")
+                await handle_got_message(r, session, fbchat_client)
+    except (RemoteProtocolError, ConnectError) as e:
+        logging.error(f"API Exception: {e}")
+        await handle_interrupt()
+
+
 async def timeout_listen_fb():
     logging.info(f"Facebook listener timeout restarted: {NeededVars.timeout_listen} sec")
     await set_timeout(False)
@@ -195,6 +218,8 @@ async def loop_listeners(listen_fb_task, client, remote_nick_format, session):
         create_task(listen_api_stream(session, client))
     elif NeededVars.listen_api_mode == "messages":
         create_task(listen_api_messages(session, client))
+    elif NeededVars.listen_api_mode == "websocket":
+        create_task(listen_websocket_messages(session, client))
     create_task(timeout_listen_fb())
     while NeededVars.run_infinite_timer is True:
         if NeededVars.timed_out is True:
